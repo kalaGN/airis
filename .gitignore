@@ -1,4 +1,5 @@
 *.ini
+vendor
 .env
 .DS_Store
 .history

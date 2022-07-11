@@ -2,6 +2,8 @@ module github.com/kalaGN/airis
 
 go 1.18
 
+require github.com/kataras/iris/v12 v12.2.0-beta3.0.20220707065724-874266d23c32
+
 require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/CloudyKit/fastprinter v0.0.0-20200109182630-33d98a066a53 // indirect
@@ -27,7 +29,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kataras/blocks v0.0.5 // indirect
 	github.com/kataras/golog v0.1.7 // indirect
-	github.com/kataras/iris/v12 v12.2.0-beta3.0.20220707065724-874266d23c32 // indirect
 	github.com/kataras/pio v0.0.10 // indirect
 	github.com/kataras/sitemap v0.0.5 // indirect
 	github.com/kataras/tunnel v0.0.4 // indirect
@@ -37,6 +38,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.19 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/schollz/closestmatch v2.1.0+incompatible // indirect
