@@ -16,6 +16,7 @@ require (
 	github.com/eknkc/amber v0.0.0-20171010120322-cdade1c07385 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/flosch/pongo2/v4 v4.0.2 // indirect
+	github.com/go-ini/ini v1.66.6 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -47,7 +48,10 @@ require (
 	github.com/stretchr/testify v1.7.5 // indirect
 	github.com/tdewolff/minify/v2 v2.11.12 // indirect
 	github.com/tdewolff/parse/v2 v2.6.1 // indirect
+	github.com/tietang/go-utils v0.1.3 // indirect
+	github.com/tietang/props v2.2.0+incompatible // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect

@@ -1,3 +1,12 @@
+/*
+ * @Author: afei
+ * @Date: 2022-07-14 09:22:45
+ * @LastEditors: afei
+ * @LastEditTime: 2022-07-14 10:30:22
+ * @Description:
+ *
+ * Copyright (c) 2022 by Infobird, All Rights Reserved.
+ */
 package routes
 
 import (
