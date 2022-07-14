@@ -2,7 +2,7 @@
  * @Author: afei
  * @Date: 2022-07-14 09:47:44
  * @LastEditors: afei
- * @LastEditTime: 2022-07-14 10:25:33
+ * @LastEditTime: 2022-07-14 13:54:32
  * @Description:
  *
  * Copyright (c) 2022 by Infobird, All Rights Reserved.
@@ -22,7 +22,7 @@ type ConfigFunc func() map[string]interface{}
 var ConfigFuncs map[string]ConfigFunc
 
 func LoadPort() (string, error) {
-	file := "./config.ini"
+	file := "./config/config.ini"
 	conf := ini.NewIniFileConfigSource(file)
 	return conf.Get("production.server.post")
 }
