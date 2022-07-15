@@ -2,10 +2,10 @@
  * @Author: afei
  * @Date: 2022-07-14 09:22:45
  * @LastEditors: afei
- * @LastEditTime: 2022-07-14 10:30:22
+ * @LastEditTime: 2022-07-14 14:23:48
  * @Description:
  *
- * Copyright (c) 2022 by Infobird, All Rights Reserved.
+ * Copyright (c) 2022 , All Rights Reserved.
  */
 package routes
 
@@ -21,6 +21,22 @@ func RegisterAPIRoutes(app *iris.Application) {
 	{
 		v1.Get("/login", list)
 	}
+
+	// Simple group: ivr
+	ivr := app.Party("/ivr")
+	{
+		ivr.Get("/inter/create", demo)
+	}
+}
+
+type CommonRes struct {
+	Code string `json:"code"`
+	Id   string `json:"id"`
+}
+
+func demo(ctx iris.Context) {
+	d1 := CommonRes{"0", "wf000001"}
+	ctx.JSON(d1)
 }
 
 // Book example.

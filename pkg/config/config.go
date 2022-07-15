@@ -5,7 +5,7 @@
  * @LastEditTime: 2022-07-14 13:54:32
  * @Description:
  *
- * Copyright (c) 2022 by Infobird, All Rights Reserved.
+ * Copyright (c) 2022 , All Rights Reserved.
  */
 package config
 
