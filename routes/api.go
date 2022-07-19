@@ -10,10 +10,7 @@
 package routes
 
 import (
-	"math/rand"
-	"strconv"
-	"time"
-
+	ivrc "github.com/kalaGN/airis/app/Http/controllers/ivr"
 	"github.com/kataras/iris/v12"
 )
 
@@ -23,49 +20,17 @@ func RegisterAPIRoutes(app *iris.Application) {
 	// Simple group: v1
 	v1 := app.Party("/v1")
 	{
-		v1.Get("/login", demo)
+		v1.Get("/login", ivrc.Create)
 	}
 
 	// Simple group: ivr
 	ivr := app.Party("/ivr")
 	{
-		ivr.Get("/inter/create", demo)
-		ivr.Get("/inter/getflowname", getflowname)
+		ivr.Get("/inter/create", ivrc.Create)
+		ivr.Get("/inter/getflowname", ivrc.Getflowname)
 
-		ivr.Post("/inter/copy", copy)
-		ivr.Post("/inter/deleteprocess", del)
+		ivr.Post("/inter/copy", ivrc.Copy)
+		ivr.Post("/inter/deleteprocess", ivrc.Del)
 
 	}
-}
-
-type CommonRes struct {
-	Code string `json:"code"`
-	Id   string `json:"id"`
-}
-
-type CommonResg struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
-}
-
-func demo(ctx iris.Context) {
-	rand.Seed(time.Now().UnixNano())
-
-	d1 := CommonRes{"0", "cret0000" + strconv.Itoa(rand.Intn(10000))}
-	ctx.JSON(d1)
-}
-
-func getflowname(ctx iris.Context) {
-	rand.Seed(time.Now().UnixNano())
-	d1 := CommonResg{"0", "name0000" + strconv.Itoa(rand.Intn(10000))}
-	ctx.JSON(d1)
-}
-func copy(ctx iris.Context) {
-	rand.Seed(time.Now().UnixNano())
-	d1 := CommonRes{"0", "copy0000" + strconv.Itoa(rand.Intn(10000))}
-	ctx.JSON(d1)
-}
-func del(ctx iris.Context) {
-	d1 := CommonRes{"200", "ok"}
-	ctx.JSON(d1)
 }
