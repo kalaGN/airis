@@ -11,12 +11,13 @@ package routes
 
 import (
 	ivrc "github.com/kalaGN/airis/app/Http/controllers/ivr"
+	loangoldenc "github.com/kalaGN/airis/app/Http/controllers/loangolden"
 	"github.com/kataras/iris/v12"
 )
 
 // RegisterAPIRoutes 注册网页相关路由
 func RegisterAPIRoutes(app *iris.Application) {
-
+    app.Get("/health", func(ctx iris.Context) { ctx.WriteString("ok") })
 	// Simple group: v1
 	v1 := app.Party("/v1")
 	{
@@ -32,5 +33,10 @@ func RegisterAPIRoutes(app *iris.Application) {
 		ivr.Post("/inter/copy", ivrc.Copy)
 		ivr.Post("/inter/deleteprocess", ivrc.Del)
 
+	}
+
+	loangolden := app.Party("/loanGolden")
+	{
+		loangolden.Post("/", loangoldenc.Create)
 	}
 }
