@@ -1,4 +1,4 @@
-package loangolden
+package loan
 
 import (
     "fmt"

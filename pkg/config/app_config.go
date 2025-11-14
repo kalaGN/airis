@@ -1,0 +1,130 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+)
+
+// AppConfig 应用配置结构
+type AppConfig struct {
+	Server   ServerConfig
+	MongoDB  MongoDBConfig
+	Redis    RedisConfig
+}
+
+// ServerConfig 服务器配置
+type ServerConfig struct {
+	Port string
+	Env  string
+}
+
+// MongoDBConfig MongoDB 配置
+type MongoDBConfig struct {
+	DSN      string
+	Database string
+	Timeout  string
+	MaxPool  int
+	MinPool  int
+}
+
+// RedisConfig Redis 配置
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+	PoolSize int
+}
+
+var Config *AppConfig
+
+// Load 从环境变量加载配置
+func Load() error {
+	Config = &AppConfig{
+		Server: ServerConfig{
+			Port: getEnvWithDefault("SERVER_PORT", "8082"),
+			Env:  getEnvWithDefault("ENV", "production"),
+		},
+		MongoDB: MongoDBConfig{
+			DSN:      os.Getenv("MONGODB_DSN"),
+			Database: os.Getenv("MONGODB_DATABASE"),
+			Timeout:  getEnvWithDefault("MONGODB_TIMEOUT", "5s"),
+			MaxPool:  getEnvIntWithDefault("MONGODB_MAX_POOL", 100),
+			MinPool:  getEnvIntWithDefault("MONGODB_MIN_POOL", 10),
+		},
+		Redis: RedisConfig{
+			Addr:     getEnvWithDefault("REDIS_ADDR", "localhost:6379"),
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       getEnvIntWithDefault("REDIS_DB", 0),
+			PoolSize: getEnvIntWithDefault("REDIS_POOL_SIZE", 10),
+		},
+	}
+
+	return nil
+}
+
+// getEnvWithDefault 获取环境变量，如果不存在则返回默认值
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvIntWithDefault 获取整数类型的环境变量，如果不存在或解析失败则返回默认值
+func getEnvIntWithDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
+// GetServerPort 获取服务端口
+func GetServerPort() string {
+	if Config == nil {
+		_ = Load()
+	}
+	return Config.Server.Port
+}
+
+// GetMongoConfig 获取 MongoDB 配置
+func GetMongoConfig() MongoDBConfig {
+	if Config == nil {
+		_ = Load()
+	}
+	return Config.MongoDB
+}
+
+// GetRedisConfig 获取 Redis 配置
+func GetRedisConfig() RedisConfig {
+	if Config == nil {
+		_ = Load()
+	}
+	return Config.Redis
+}
+
+// LoadPort 保持向后兼容
+func LoadPort() (string, error) {
+	if Config == nil {
+		if err := Load(); err != nil {
+			return "", err
+		}
+	}
+	return Config.Server.Port, nil
+}
+
+// Validate 验证配置
+func (c *AppConfig) Validate() error {
+	if c.Server.Port == "" {
+		return fmt.Errorf("server port is required")
+	}
+	if c.MongoDB.DSN == "" {
+		return fmt.Errorf("MongoDB DSN is required")
+	}
+	if c.MongoDB.Database == "" {
+		return fmt.Errorf("MongoDB database is required")
+	}
+	return nil
+}

@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"sync"
+	"github.com/kalaGN/airis/pkg/config"
 	"github.com/kalaGN/airis/pkg/env"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -21,20 +23,72 @@ type Config struct {
 	Query string
 }
 
+var (
+	client *mongo.Client
+	once   sync.Once
+	clientErr error
+)
+
+// GetClient 获取全局 MongoDB 客户端（单例模式 + 连接池）
+func GetClient(ctx context.Context) (*mongo.Client, error) {
+	once.Do(func() {
+		cfg := config.GetMongoConfig()
+		if cfg.DSN == "" {
+			clientErr = fmt.Errorf("MongoDB DSN is empty")
+			return
+		}
+
+		// 配置连接池参数
+		clientOptions := options.Client().
+			ApplyURI(cfg.DSN).
+			SetMaxPoolSize(uint64(cfg.MaxPool)).
+			SetMinPoolSize(uint64(cfg.MinPool)).
+			SetMaxConnIdleTime(30 * time.Second).
+			SetConnectTimeout(5 * time.Second).
+			SetServerSelectionTimeout(5 * time.Second)
+
+		// 连接 MongoDB
+		var err error
+		client, err = mongo.Connect(ctx, clientOptions)
+		if err != nil {
+			clientErr = fmt.Errorf("failed to connect to MongoDB: %v", err)
+			return
+		}
+
+		// 测试连接
+		err = client.Ping(ctx, nil)
+		if err != nil {
+			clientErr = fmt.Errorf("failed to ping MongoDB: %v", err)
+			return
+		}
+
+		log.Println("MongoDB connected with connection pool")
+	})
+
+	return client, clientErr
+}
+
+// Close 关闭 MongoDB 连接
+func Close(ctx context.Context) error {
+	if client != nil {
+		return client.Disconnect(ctx)
+	}
+	return nil
+}
+
 func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
-    dsn, db, _, _ := env.GetQa()
-    if dsn == "" || db == "" {
-        return nil, fmt.Errorf("invalid DSN or DB configuration")
-    }
+	dsn, db, _, _ := env.GetQa()
+	if dsn == "" || db == "" {
+		return nil, fmt.Errorf("invalid DSN or DB configuration")
+	}
 	config.DSN = dsn
 	config.DB = db
 
-	// 连接到 MongoDB
-	client, err := connectToMongoDB(ctx, config.DSN)
+	// 使用连接池客户端
+	client, err := GetClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to MongoDB: %v", err)
+		return nil, err
 	}
-	defer client.Disconnect(ctx)
 
 	// 获取数据库实例
 	database := client.Database(config.DB)

@@ -10,33 +10,16 @@
 package routes
 
 import (
-	ivrc "github.com/kalaGN/airis/app/Http/controllers/ivr"
-	loangoldenc "github.com/kalaGN/airis/app/Http/controllers/loangolden"
+	loanc "github.com/kalaGN/airis/app/Http/controllers/loan"
 	"github.com/kataras/iris/v12"
 )
 
 // RegisterAPIRoutes 注册网页相关路由
 func RegisterAPIRoutes(app *iris.Application) {
-    app.Get("/health", func(ctx iris.Context) { ctx.WriteString("ok") })
-	// Simple group: v1
-	v1 := app.Party("/v1")
+	app.Get("/health", func(ctx iris.Context) { ctx.WriteString("ok") })
+
+	loan := app.Party("/loan")
 	{
-		v1.Get("/login", ivrc.Create)
-	}
-
-	// Simple group: ivr
-	ivr := app.Party("/ivr")
-	{
-		ivr.Get("/inter/create", ivrc.Create)
-		ivr.Get("/inter/getflowname", ivrc.Getflowname)
-
-		ivr.Post("/inter/copy", ivrc.Copy)
-		ivr.Post("/inter/deleteprocess", ivrc.Del)
-
-	}
-
-	loangolden := app.Party("/loanGolden")
-	{
-		loangolden.Post("/", loangoldenc.Create)
+		loan.Post("/", loanc.Create)
 	}
 }
