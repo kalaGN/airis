@@ -21,11 +21,12 @@ type ServerConfig struct {
 
 // MongoDBConfig MongoDB 配置
 type MongoDBConfig struct {
-	DSN      string
-	Database string
-	Timeout  string
-	MaxPool  int
-	MinPool  int
+	DSN        string
+	Database   string
+	Collection string
+	Timeout    string
+	MaxPool    int
+	MinPool    int
 }
 
 // RedisConfig Redis 配置
@@ -46,11 +47,12 @@ func Load() error {
 			Env:  getEnvWithDefault("ENV", "production"),
 		},
 		MongoDB: MongoDBConfig{
-			DSN:      os.Getenv("MONGODB_DSN"),
-			Database: os.Getenv("MONGODB_DATABASE"),
-			Timeout:  getEnvWithDefault("MONGODB_TIMEOUT", "5s"),
-			MaxPool:  getEnvIntWithDefault("MONGODB_MAX_POOL", 100),
-			MinPool:  getEnvIntWithDefault("MONGODB_MIN_POOL", 10),
+			DSN:        os.Getenv("MONGODB_DSN"),
+			Database:   os.Getenv("MONGODB_DATABASE"),
+			Collection: getEnvWithDefault("MONGODB_COLLECTION", "data_20251101_0"),
+			Timeout:    getEnvWithDefault("MONGODB_TIMEOUT", "5s"),
+			MaxPool:    getEnvIntWithDefault("MONGODB_MAX_POOL", 100),
+			MinPool:    getEnvIntWithDefault("MONGODB_MIN_POOL", 10),
 		},
 		Redis: RedisConfig{
 			Addr:     getEnvWithDefault("REDIS_ADDR", "localhost:6379"),

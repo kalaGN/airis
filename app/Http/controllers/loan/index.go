@@ -55,7 +55,7 @@ func Create(ctx iris.Context) {
 		Query: "some_query_value", // 根据实际情况设置查询条件
 	}
 
-	config.DSN, config.DB, _, _ = env.GetQa()
+	config.DSN, config.DB, config.Collection, _, _ = env.GetQa()
 	config.Query = "0a62b59dabfc07d58bd3"
 	// 调用 GetMongo 方法
     result, err := mongo.GetMongo(ctx, config)
