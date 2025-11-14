@@ -26,6 +26,9 @@ _cgo_export.*
 *.o
 *.so
 
+# cmd 目录编译产物
+cmd/init_mongo
+
 # 压缩包 #
 ############
 # Git 自带压缩,如果这些压缩包里有代码,建议解压后 commit
