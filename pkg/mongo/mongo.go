@@ -18,9 +18,10 @@ import (
 
 // Config 包含 MongoDB 连接信息和查询条件
 type Config struct {
-	DSN   string
-	DB    string
-	Query string
+	DSN        string
+	DB         string
+	Collection string // 集合名称
+	Query      string
 }
 
 var (
@@ -77,12 +78,15 @@ func Close(ctx context.Context) error {
 }
 
 func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
-	dsn, db, _, _ := env.GetQa()
+	dsn, db, collectionName, _, _ := env.GetQa()
 	if dsn == "" || db == "" {
 		return nil, fmt.Errorf("invalid DSN or DB configuration")
 	}
 	config.DSN = dsn
 	config.DB = db
+	if config.Collection == "" {
+		config.Collection = collectionName
+	}
 
 	// 使用连接池客户端
 	client, err := GetClient(ctx)
@@ -92,7 +96,13 @@ func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
 
 	// 获取数据库实例
 	database := client.Database(config.DB)
-	collection := database.Collection("ads_nginx_log_var_20240827_0")
+	
+	// 使用配置的集合名称，如果未指定则使用默认值
+	colName := config.Collection
+	if colName == "" {
+		colName = "data_20251101_0"
+	}
+	collection := database.Collection(colName)
 
 	query := struct {
 		T string `bson:"t"`
@@ -123,12 +133,12 @@ func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
 	userDataArray := strings.Split(decompressedUserData, ",")
 
 	varList := map[string]int{
-		"var200001": 0,
-		"var200002": 1,
-		"var200003": 2,
-		"var200004": 3,
-		"var200005": 4,
-		"var200006": 5,
+		"var100001": 0,
+		"var100002": 1,
+		"var100003": 2,
+		"var100004": 3,
+		"var100005": 4,
+		"var100006": 5,
 	}
 	result := ProcessUserData(varList, userDataArray)
 	return result, nil
