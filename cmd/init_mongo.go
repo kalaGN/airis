@@ -68,6 +68,16 @@ func main() {
 		// 删除已存在的集合（可选）
 		collection.Drop(ctx)
 
+		// 创建索引：为 t 字段创建唯一索引
+		indexModel := mongo.IndexModel{
+			Keys:    map[string]interface{}{"t": 1}, // 1 表示升序索引
+			Options: options.Index().SetUnique(true).SetName("t_unique_index"),
+		}
+		_, err := collection.Indexes().CreateOne(ctx, indexModel)
+		if err != nil {
+			log.Printf("Warning: Failed to create index for %s: %v", collName, err)
+		}
+
 		// 生成并插入 1000 条数据
 		documents := make([]interface{}, 1000)
 		for i := 0; i < 1000; i++ {
@@ -80,7 +90,7 @@ func main() {
 		}
 
 		// 批量插入
-		_, err := collection.InsertMany(ctx, documents)
+		_, err = collection.InsertMany(ctx, documents)
 		if err != nil {
 			log.Printf("Failed to insert documents into %s: %v", collName, err)
 			continue
