@@ -160,12 +160,12 @@ Content-Type: application/json
   "msg": "success",
   "sid": "615xxxxx",
   "data": {
-    "var200001": 0,
-    "var200002": 1,
-    "var200003": 2,
-    "var200004": 3,
-    "var200005": 4,
-    "var200006": 5
+    "var100001": 0,
+    "var100002": 1,
+    "var100003": 2,
+    "var100004": 3,
+    "var100005": 4,
+    "var100006": 5
   }
 }
 ```
