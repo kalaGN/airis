@@ -1,14 +1,15 @@
 package loan
 
 import (
-    "fmt"
-    "github.com/kalaGN/airis/pkg/env"
-    "github.com/kalaGN/airis/pkg/mongo"
-    "github.com/kalaGN/airis/pkg/rescode"
-    "github.com/kataras/iris/v12"
-    "math/rand"
-    "strings"
-    "time"
+	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+
+	"github.com/kalaGN/airis/pkg/env"
+	"github.com/kalaGN/airis/pkg/mongo"
+	"github.com/kalaGN/airis/pkg/rescode"
+	"github.com/kataras/iris/v12"
 )
 
 type CommonRes struct {
@@ -19,7 +20,7 @@ type CommonRes struct {
 }
 
 func init() {
-    rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())
 }
 
 func Create(ctx iris.Context) {
@@ -30,7 +31,7 @@ func Create(ctx iris.Context) {
 		sid.WriteByte(charset[rand.Intn(len(charset))])
 	}
 	var body struct {
-		TestNewFormat interface{} `json:"testNewFormat"`
+		Phone interface{} `json:"phone"`
 	}
 	if err := ctx.ReadJSON(&body); err != nil {
 		fmt.Printf("Error reading JSON: %v\n", err)
@@ -38,14 +39,14 @@ func Create(ctx iris.Context) {
 		return
 	}
 
-	// 类型断言以确保 testNewFormat 是字符串
-	testNewFormat, ok := body.TestNewFormat.(string)
+	// 类型断言以确保 phone 是字符串
+	phone, ok := body.Phone.(string)
 	if !ok {
-		ctx.JSON(CommonRes{Status: 1, Msg: "testNewFormat must be a string", Sid: ""})
+		ctx.JSON(CommonRes{Status: 1, Msg: "phone must be a string", Sid: ""})
 		return
 	}
-	if testNewFormat == "" {
-		ctx.JSON(CommonRes{Status: 1, Msg: "testNewFormat is required", Sid: ""})
+	if phone == "" {
+		ctx.JSON(CommonRes{Status: 1, Msg: "phone is required", Sid: ""})
 		return
 	}
 	// 准备配置
@@ -56,18 +57,19 @@ func Create(ctx iris.Context) {
 	}
 
 	config.DSN, config.DB, config.Collection, _, _ = env.GetQa()
-	config.Query = "0a62b59dabfc07d58bd3"
+	// 使用 phone 作为查询条件，这样可以灵活查询
+	config.Query = phone
 	// 调用 GetMongo 方法
-    result, err := mongo.GetMongo(ctx, config)
-    if err != nil {
-        ctx.JSON(CommonRes{Status: rescode.Err1101, Msg: err.Error(), Sid: "", Data: nil})
-        return
-    }
+	result, err := mongo.GetMongo(ctx, config)
+	if err != nil {
+		ctx.JSON(CommonRes{Status: rescode.Err1101, Msg: err.Error(), Sid: "", Data: nil})
+		return
+	}
 
 	fmt.Println("Successfully retrieved and processed data   ")
 
 	// 构建一个 CommonRes 类型的响应体，其中包含一个状态码 "0" 和一个包含随机数的字符串。
-    d1 := CommonRes{rescode.SuccessCode, rescode.GetCodeMsg(rescode.SuccessCode), "615" + sid.String(), result}
+	d1 := CommonRes{rescode.SuccessCode, rescode.GetCodeMsg(rescode.SuccessCode), "615" + sid.String(), result}
 	// 将响应体以 JSON 格式发送回客户端。
 	ctx.JSON(d1)
 }
