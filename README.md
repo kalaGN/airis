@@ -158,7 +158,7 @@ Content-Type: application/json
 {
   "status": 0,
   "msg": "success",
-  "sid": "615xxxxx",
+  "sid": "xxxxxxxxxxxx",
   "data": {
     "var100001": 0,
     "var100002": 1,
