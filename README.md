@@ -124,7 +124,7 @@ curl http://localhost:8082/health
 # 贷款接口
 curl -X POST http://localhost:8082/loan \
   -H "Content-Type: application/json" \
-  -d '{"testNewFormat":"test123"}'
+  -d '{"phone":"test123"}'
 ```
 
 ## API 接口
@@ -148,7 +148,7 @@ Content-Type: application/json
 
 ```json
 {
-  "testNewFormat": "string"
+  "phone": "string"
 }
 ```
 
