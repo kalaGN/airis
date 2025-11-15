@@ -29,7 +29,7 @@ func registerGlobalMiddleWare(router *iris.Application) {
 	// 请求日志中间件
 	router.Use(middleware.Logger())
 
-	// 全局限流：每分钟 100 个请求
-	rateLimiter := middleware.NewRateLimiter(100, time.Minute)
+	// 全局限流：每秒 100,000 个请求
+	rateLimiter := middleware.NewRateLimiter(100000, time.Second)
 	router.Use(rateLimiter.RateLimit())
 }
