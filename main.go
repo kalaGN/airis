@@ -3,13 +3,18 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/kalaGN/airis/bootstrap"
 	"github.com/kalaGN/airis/pkg/config"
 	"github.com/kalaGN/airis/pkg/logger"
 	"github.com/kalaGN/airis/pkg/mongo"
-	"github.com/kataras/iris/v12"
 )
 
 func main() {
@@ -26,26 +31,57 @@ func main() {
 	}
 	logger.Log.Info("Configuration loaded")
 
-	// 初始化 Iris 应用
-	app := iris.Default()
-	bootstrap.SetupRoute(app)
+	// 设置 Gin 模式
+	if config.Config.Server.Env == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
+	}
+
+	// 初始化 Gin 应用
+	router := gin.New()
+	bootstrap.SetupRoute(router)
 
 	// 获取服务端口
 	port, _ := config.LoadPort()
 
-	// 注册优雅关闭
-	iris.RegisterOnInterrupt(func() {
-		logger.Log.Info("Shutting down gracefully...")
-		
-		// 关闭 MongoDB 连接
-		if err := mongo.Close(context.Background()); err != nil {
-			logger.Log.Errorf("Error closing MongoDB: %v", err)
-		}
-		
-		_ = app.Shutdown(context.Background())
-		logger.Log.Info("Application stopped")
-	})
+	// 创建 HTTP 服务器
+	srv := &http.Server{
+		Addr:           ":" + port,
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1MB
+	}
 
-	logger.Log.Infof("Server starting on port %s", port)
-	app.Listen(":"+port, iris.WithoutServerError(iris.ErrServerClosed))
+	// 启动服务器（在 goroutine 中）
+	go func() {
+		logger.Log.Infof("Server starting on port %s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	// 等待中断信号以优雅关闭服务器
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Log.Info("Shutting down gracefully...")
+
+	// 设置关闭超时时间
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 关闭 MongoDB 连接
+	if err := mongo.Close(ctx); err != nil {
+		logger.Log.Errorf("Error closing MongoDB: %v", err)
+	}
+
+	// 关闭 HTTP 服务器
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	logger.Log.Info("Application stopped")
 }

@@ -2,10 +2,11 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
-	"github.com/kataras/iris/v12"
+	"github.com/gin-gonic/gin"
 )
 
 // RateLimiter 简单的内存限流器
@@ -36,20 +37,20 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 }
 
 // RateLimit 限流中间件
-func (rl *RateLimiter) RateLimit() iris.Handler {
-	return func(ctx iris.Context) {
-		ip := ctx.RemoteAddr()
+func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
 
 		if !rl.allow(ip) {
-			ctx.StatusCode(iris.StatusTooManyRequests)
-			ctx.JSON(iris.Map{
+			c.JSON(http.StatusTooManyRequests, gin.H{
 				"status": 429,
 				"msg":    fmt.Sprintf("Rate limit exceeded. Max %d requests per %v", rl.rate, rl.window),
 			})
+			c.Abort()
 			return
 		}
 
-		ctx.Next()
+		c.Next()
 	}
 }
 
