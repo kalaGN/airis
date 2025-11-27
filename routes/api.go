@@ -23,9 +23,6 @@ func RegisterAPIRoutes(router *gin.Engine) {
 		c.String(http.StatusOK, "ok")
 	})
 
-	// Loan 路由组
-	loanGroup := router.Group("/loan")
-	{
-		loanGroup.POST("/", loanc.Create)
-	}
+	// Loan 路由
+	router.POST("/loan", loanc.Create)
 }
