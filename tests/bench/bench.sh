@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 # 配置
 BASE_URL="http://localhost:8082"
 LOAN_ENDPOINT="/loan"
-TEST_DATA='{"phone":"o8wiaiptftdvx0jrt3mm"}'
+TEST_DATA='{"phone":"r707qyr0k2xmucjp7lz0"}'
 RESULTS_DIR="./results"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
