@@ -4,13 +4,13 @@ package bootstrap
 import (
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/kalaGN/airis/app/middleware"
 	"github.com/kalaGN/airis/routes"
-	"github.com/kataras/iris/v12"
 )
 
 // SetupRoute 路由初始化
-func SetupRoute(router *iris.Application) {
+func SetupRoute(router *gin.Engine) {
 
 	// 注册全局中间件
 	registerGlobalMiddleWare(router)
@@ -19,9 +19,9 @@ func SetupRoute(router *iris.Application) {
 	routes.RegisterAPIRoutes(router)
 }
 
-func registerGlobalMiddleWare(router *iris.Application) {
-	// 异常恢复中间件（最先执行）
-	router.Use(middleware.Recovery())
+func registerGlobalMiddleWare(router *gin.Engine) {
+	// 异常恢复中间件（使用 Gin 内置）
+	router.Use(gin.Recovery())
 
 	// CORS 跨域中间件
 	router.Use(middleware.CORS())

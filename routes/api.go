@@ -10,16 +10,22 @@
 package routes
 
 import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 	loanc "github.com/kalaGN/airis/app/Http/controllers/loan"
-	"github.com/kataras/iris/v12"
 )
 
 // RegisterAPIRoutes 注册网页相关路由
-func RegisterAPIRoutes(app *iris.Application) {
-	app.Get("/health", func(ctx iris.Context) { ctx.WriteString("ok") })
+func RegisterAPIRoutes(router *gin.Engine) {
+	// 健康检查
+	router.GET("/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
 
-	loan := app.Party("/loan")
+	// Loan 路由组
+	loanGroup := router.Group("/loan")
 	{
-		loan.Post("/", loanc.Create)
+		loanGroup.POST("/", loanc.Create)
 	}
 }
