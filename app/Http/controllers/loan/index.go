@@ -11,6 +11,9 @@ import (
 	"github.com/kalaGN/airis/pkg/utils"
 )
 
+// 密钥配置（生产环境应从配置文件或环境变量读取）
+const SECRET_KEY = "your_secret_key_here"
+
 type CommonRes struct {
 	Status int            `json:"status"`
 	Msg    string         `json:"msg"`
@@ -23,8 +26,11 @@ func Create(c *gin.Context) {
 	sid := utils.GenerateSID("100", 29)
 
 	var body struct {
-		Phone interface{} `json:"phone"`
-		Pcode interface{} `json:"pcode"`
+		Phone     interface{} `json:"phone"`
+		Pcode     interface{} `json:"pcode"`
+		Apikey    string      `json:"apikey"`
+		Timestamp interface{} `json:"timestamp"`
+		Sign      string      `json:"sign"`
 	}
 
 	// 绑定 JSON
@@ -58,6 +64,49 @@ func Create(c *gin.Context) {
 	}
 	if pcode < 10001 || pcode > 99999 {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "pcode must be between 10001 and 99999", Sid: ""})
+		return
+	}
+
+	// 验证 apikey
+	if body.Apikey == "" {
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "apikey is required", Sid: ""})
+		return
+	}
+
+	// 验证 timestamp（毫秒时间戳）
+	var timestamp int64
+	switch v := body.Timestamp.(type) {
+	case float64:
+		timestamp = int64(v)
+	case int64:
+		timestamp = v
+	case int:
+		timestamp = int64(v)
+	default:
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "timestamp must be a number", Sid: ""})
+		return
+	}
+	if !utils.VerifyTimestamp(timestamp) {
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "timestamp is invalid or expired", Sid: ""})
+		return
+	}
+
+	// 验证签名
+	if body.Sign == "" {
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "sign is required", Sid: ""})
+		return
+	}
+
+	// 构建签名参数
+	signParams := map[string]interface{}{
+		"phone":     phone,
+		"pcode":     pcode,
+		"apikey":    body.Apikey,
+		"timestamp": timestamp,
+	}
+
+	if !utils.VerifySign(signParams, body.Sign, SECRET_KEY) {
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "invalid signature", Sid: ""})
 		return
 	}
 
