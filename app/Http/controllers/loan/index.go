@@ -20,10 +20,11 @@ type CommonRes struct {
 
 func Create(c *gin.Context) {
 	// 生成会话 ID
-	sid := utils.GenerateSID("615", 29)
+	sid := utils.GenerateSID("100", 29)
 
 	var body struct {
 		Phone interface{} `json:"phone"`
+		Pcode interface{} `json:"pcode"`
 	}
 
 	// 绑定 JSON
@@ -41,6 +42,22 @@ func Create(c *gin.Context) {
 	}
 	if phone == "" {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "phone is required", Sid: ""})
+		return
+	}
+
+	// 验证 pcode（10001-99999 的数字）
+	var pcode int
+	switch v := body.Pcode.(type) {
+	case float64:
+		pcode = int(v)
+	case int:
+		pcode = v
+	default:
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "pcode must be a number", Sid: ""})
+		return
+	}
+	if pcode < 10001 || pcode > 99999 {
+		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "pcode must be between 10001 and 99999", Sid: ""})
 		return
 	}
 
