@@ -2,13 +2,11 @@ package loan
 
 import (
 	"fmt"
-	"math/rand"
-	"strings"
-	"time"
 
 	"github.com/kalaGN/airis/pkg/env"
 	"github.com/kalaGN/airis/pkg/mongo"
 	"github.com/kalaGN/airis/pkg/rescode"
+	"github.com/kalaGN/airis/pkg/utils"
 	"github.com/kataras/iris/v12"
 )
 
@@ -19,17 +17,9 @@ type CommonRes struct {
 	Data   map[string]int `json:"data"`
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func Create(ctx iris.Context) {
-	// 使用字母 (a-z, A-Z) 和数字 (0-9) 来生成随机字符串。
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	var sid strings.Builder
-	for i := 0; i < 29; i++ {
-		sid.WriteByte(charset[rand.Intn(len(charset))])
-	}
+	// 生成会话 ID
+	sid := utils.GenerateSID("615", 29)
 	var body struct {
 		Phone interface{} `json:"phone"`
 	}
@@ -68,8 +58,8 @@ func Create(ctx iris.Context) {
 
 	fmt.Println("Successfully retrieved and processed data   ")
 
-	// 构建一个 CommonRes 类型的响应体，其中包含一个状态码 "0" 和一个包含随机数的字符串。
-	d1 := CommonRes{rescode.SuccessCode, rescode.GetCodeMsg(rescode.SuccessCode), "615" + sid.String(), result}
+	// 构建响应体
+	d1 := CommonRes{rescode.SuccessCode, rescode.GetCodeMsg(rescode.SuccessCode), sid, result}
 	// 将响应体以 JSON 格式发送回客户端。
 	ctx.JSON(d1)
 }
