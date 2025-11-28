@@ -29,7 +29,7 @@ func registerGlobalMiddleWare(router *gin.Engine) {
 	// 请求日志中间件
 	router.Use(middleware.Logger())
 
-	// 全局限流：每秒 100,000 个请求
-	rateLimiter := middleware.NewRateLimiter(100000, time.Second)
+	// 全局限流：每秒 5,000 个请求
+	rateLimiter := middleware.NewRateLimiter(5000, time.Second)
 	router.Use(rateLimiter.RateLimit())
 }

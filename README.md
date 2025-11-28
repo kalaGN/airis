@@ -1,11 +1,11 @@
 # Airis
 
-基于 Iris Web 框架构建的 Go 语言 API 服务项目。
+基于 Gin Web 框架构建的 Go 语言 API 服务项目。
 
 ## 技术栈
 
 - **Go 1.18+**
-- **Iris v12** - Web 框架
+- **Gin v1.11.0** - Web 框架
 - **MongoDB** - 数据库（支持连接池）
 - **Redis** - 缓存
 - **Logrus** - 日志系统
@@ -23,7 +23,7 @@ airis/
 │   │   ├── cors.go          # CORS
 │   │   ├── logger.go        # 日志
 │   │   ├── ratelimit.go     # 限流
-│   │   └── recovery.go      # 异常恢复
+
 │   ├── models/              # 数据模型
 │   └── repositories/        # 数据仓库
 ├── bootstrap/               # 启动引导
@@ -44,7 +44,7 @@ airis/
 
 ### 中间件系统
 - ✅ **日志中间件** - 结构化日志记录请求/响应
-- ✅ **异常恢复** - Panic 自动恢复
+- ✅ **异常恢复** - 使用 Gin 内置 Recovery
 - ✅ **CORS 支持** - 跨域请求处理
 - ✅ **限流保护** - 防止接口滥用（100 req/min）
 - ✅ **认证鉴权** - JWT/API Key 支持
@@ -124,7 +124,7 @@ curl http://localhost:8082/health
 # 贷款接口
 curl -X POST http://localhost:8082/loan \
   -H "Content-Type: application/json" \
-  -d '{"phone":"test123"}'
+  -d '{"phone":"test123","pcode":10001,"apikey":"your_api_key","timestamp":1730000000000,"sign":"UPPERCASE_MD5_32_CHARS"}'
 ```
 
 ## API 接口
@@ -148,7 +148,11 @@ Content-Type: application/json
 
 ```json
 {
-  "phone": "string"
+  "phone": "string",
+  "pcode": 10001,
+  "apikey": "your_api_key",
+  "timestamp": 1730000000000,
+  "sign": "UPPERCASE_MD5_32_CHARS"
 }
 ```
 
