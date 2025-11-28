@@ -36,18 +36,18 @@ func Create(c *gin.Context) {
 	// 绑定 JSON
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Printf("Error reading JSON: %v\n", err)
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "Invalid JSON format", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidJSON, Msg: rescode.GetCodeMsg(rescode.ErrInvalidJSON), Sid: ""})
 		return
 	}
 
 	// 类型断言以确保 phone 是字符串
 	phone, ok := body.Phone.(string)
 	if !ok {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "phone must be a string", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPhone, Msg: "phone must be a string", Sid: ""})
 		return
 	}
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "phone is required", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrMissingParam, Msg: "phone is required", Sid: ""})
 		return
 	}
 
@@ -59,17 +59,17 @@ func Create(c *gin.Context) {
 	case int:
 		pcode = v
 	default:
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "pcode must be a number", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPcode, Msg: "pcode must be a number", Sid: ""})
 		return
 	}
 	if pcode < 10001 || pcode > 99999 {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "pcode must be between 10001 and 99999", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPcode, Msg: rescode.GetCodeMsg(rescode.ErrInvalidPcode), Sid: ""})
 		return
 	}
 
 	// 验证 apikey
 	if body.Apikey == "" {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "apikey is required", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidApikey, Msg: rescode.GetCodeMsg(rescode.ErrInvalidApikey), Sid: ""})
 		return
 	}
 
@@ -83,17 +83,17 @@ func Create(c *gin.Context) {
 	case int:
 		timestamp = int64(v)
 	default:
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "timestamp must be a number", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidTimestamp, Msg: "timestamp must be a number", Sid: ""})
 		return
 	}
 	if !utils.VerifyTimestamp(timestamp) {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "timestamp is invalid or expired", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidTimestamp, Msg: rescode.GetCodeMsg(rescode.ErrInvalidTimestamp), Sid: ""})
 		return
 	}
 
 	// 验证签名
 	if body.Sign == "" {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "sign is required", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidSign, Msg: "sign is required", Sid: ""})
 		return
 	}
 
@@ -106,7 +106,7 @@ func Create(c *gin.Context) {
 	}
 
 	if !utils.VerifySign(signParams, body.Sign, SECRET_KEY) {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: 1, Msg: "invalid signature", Sid: ""})
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidSign, Msg: rescode.GetCodeMsg(rescode.ErrInvalidSign), Sid: ""})
 		return
 	}
 
@@ -124,7 +124,7 @@ func Create(c *gin.Context) {
 	// 调用 GetMongo 方法，使用 Gin 的 Request Context
 	result, err := mongo.GetMongo(c.Request.Context(), config)
 	if err != nil {
-		c.JSON(http.StatusOK, CommonRes{Status: rescode.Err1101, Msg: err.Error(), Sid: "", Data: nil})
+		c.JSON(http.StatusOK, CommonRes{Status: rescode.ErrDataNotFound, Msg: err.Error(), Sid: "", Data: nil})
 		return
 	}
 
