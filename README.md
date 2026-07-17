@@ -81,6 +81,7 @@ cp .env.example .env
 # 服务器配置
 SERVER_PORT=8082
 ENV=development
+SECRET_KEY=replace_with_a_strong_random_secret
 
 # MongoDB 配置
 MONGODB_DSN=mongodb://localhost:27017
@@ -180,6 +181,7 @@ Content-Type: application/json
 |--------|------|--------|------|
 | `SERVER_PORT` | 服务端口 | `8082` | 否 |
 | `ENV` | 运行环境 | `production` | 否 |
+| `SECRET_KEY` | 请求签名密钥 | - | 是 |
 | `MONGODB_DSN` | MongoDB 连接字符串 | - | 是 |
 | `MONGODB_DATABASE` | 数据库名称 | - | 是 |
 | `MONGODB_COLLECTION` | 集合名称 | `data_20251101_0` | 否 |

@@ -8,9 +8,10 @@ import (
 
 // AppConfig 应用配置结构
 type AppConfig struct {
-	Server   ServerConfig
-	MongoDB  MongoDBConfig
-	Redis    RedisConfig
+	Server    ServerConfig
+	MongoDB   MongoDBConfig
+	Redis     RedisConfig
+	SecretKey string
 }
 
 // ServerConfig 服务器配置
@@ -60,6 +61,7 @@ func Load() error {
 			DB:       getEnvIntWithDefault("REDIS_DB", 0),
 			PoolSize: getEnvIntWithDefault("REDIS_POOL_SIZE", 10),
 		},
+		SecretKey: os.Getenv("SECRET_KEY"),
 	}
 
 	return nil
@@ -107,6 +109,14 @@ func GetRedisConfig() RedisConfig {
 	return Config.Redis
 }
 
+// GetSecretKey 获取请求签名密钥
+func GetSecretKey() string {
+	if Config == nil {
+		_ = Load()
+	}
+	return Config.SecretKey
+}
+
 // LoadPort 保持向后兼容
 func LoadPort() (string, error) {
 	if Config == nil {
@@ -127,6 +137,9 @@ func (c *AppConfig) Validate() error {
 	}
 	if c.MongoDB.Database == "" {
 		return fmt.Errorf("MongoDB database is required")
+	}
+	if c.SecretKey == "" {
+		return fmt.Errorf("secret key is required")
 	}
 	return nil
 }

@@ -5,14 +5,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	appconfig "github.com/kalaGN/airis/pkg/config"
 	"github.com/kalaGN/airis/pkg/env"
 	"github.com/kalaGN/airis/pkg/mongo"
 	"github.com/kalaGN/airis/pkg/rescode"
 	"github.com/kalaGN/airis/pkg/utils"
 )
-
-// 密钥配置（生产环境应从配置文件或环境变量读取）
-const SECRET_KEY = "your_secret_key_here"
 
 type CommonRes struct {
 	Status int            `json:"status"`
@@ -105,7 +103,7 @@ func Create(c *gin.Context) {
 		"timestamp": timestamp,
 	}
 
-	if !utils.VerifySign(signParams, body.Sign, SECRET_KEY) {
+	if !utils.VerifySign(signParams, body.Sign, appconfig.GetSecretKey()) {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidSign, Msg: rescode.GetCodeMsg(rescode.ErrInvalidSign), Sid: ""})
 		return
 	}
