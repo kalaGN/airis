@@ -29,6 +29,9 @@ func main() {
 	if err := config.Load(); err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	if err := config.Config.Validate(); err != nil {
+		log.Fatalf("Invalid config: %v", err)
+	}
 	logger.Log.Info("Configuration loaded")
 
 	// 设置 Gin 模式
