@@ -249,12 +249,13 @@ MongoDB 配置同时存在于：
 ### 7.1 AI Coding 文档体系
 
 2026-08-03 盘点时，仓库不存在 `docs/`、`docs/specs/` 或 `docs/knowledges/`，只有既有的
-扁平 `doc/` 目录。为避免调整目录结构，本次在根目录增加 `AGENTS.md`，并在 `doc/` 下增加：
+扁平 `doc/` 目录。当时在根目录增加 `AGENTS.md` 和文档规则；后续文档已按
+`doc/rules/`、`doc/specs/` 和 `doc/knowledge/` 迁移。当前入口为：
 
-- `README.md`：Rules、Specs、Knowledge 总索引和冲突处理；
-- `project_rules.md`：长期项目规则；
-- `spec_guidelines.md`：Spec 命名、模板和生命周期；
-- `knowledge_index.md`：现有知识文件索引和加载规则。
+- `../README.md`：Rules、Specs、Knowledge 总索引和冲突处理；
+- `../rules/project_rules.md`：长期项目规则；
+- `../rules/spec_guidelines.md`：Spec 命名、模板和生命周期；
+- `README.md`：现有知识文件索引和加载规则。
 
 ### 7.2 现状审计清单
 
