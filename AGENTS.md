@@ -1,0 +1,59 @@
+# Airis AI Coding 入口
+
+## 项目定位
+
+Airis 是一个单仓库、单 Go module 的 Gin HTTP 查询服务。当前真实启用的接口为
+`GET /health` 和 `POST /loan`；Loan 请求查询 MongoDB 中的 gzip 数据并映射为变量结果。
+仓库中的 Redis、Repository/Model 和 HelloWorld gRPC 代码尚未进入主调用链。
+
+## 技术与入口
+
+- Go `1.24.0`，toolchain `go1.24.10`；Gin `1.11.0`。
+- 应用入口：`main.go`；路由：`routes/api.go`；中间件：`app/middleware/`。
+- 核心处理：`app/Http/controllers/loan/index.go`、`pkg/mongo/mongo.go`。
+- 测试数据 CLI：`cmd/init_mongo.go`。它会删除并重建 16 个集合，未经明确授权不得运行。
+- 依赖锁定：`go.mod`、`go.sum`。仓库未配置 CI、Dockerfile 或项目级 Lint 工具。
+
+## 常用命令
+
+在仓库根目录执行：
+
+```bash
+go mod download
+go mod verify
+go run main.go
+gofmt -l $(git ls-files '*.go')
+go vet ./...
+go test ./...
+go test -race ./...
+go build ./...
+go build -o /tmp/airis main.go
+```
+
+启动依赖 `.env` 或等价环境变量；不得输出或提交真实密钥、连接串和个人数据。
+
+## 渐进加载
+
+1. 先读 [`doc/README.md`](doc/README.md)，按任务类型选择文档。
+2. 修改前读相关源文件、测试、Rules，以及对应 Spec/Knowledge；不要一次加载无关文档。
+3. 当前实现与历史文档冲突时以已验证代码为事实，并报告冲突；不能静默改契约。
+
+## 核心红线
+
+- 不擅自改变 HTTP、Proto、业务码、Mongo 文档格式或其他公开/数据契约。
+- 不提交 `.env`、Token、证书、连接串、完整手机号、API Key、签名或响应敏感数据。
+- 不因依赖已存在就宣称能力已启用；以主调用链和启动代码为准。
+- 不无需求增加依赖、层级、服务、中间件、基础设施或部署组件。
+- 新功能和缺陷修复必须同步测试；Bug 修复遵循“复现→失败测试→根因→最小修复→回归”。
+- 数据、外部依赖、架构、部署、安全或性能变更先评估影响；复杂变更先建 Spec。
+- 不吞掉错误、删除测试或降低校验来让检查通过。
+- 不手改 `*.pb.go`；Proto 兼容性和生成方式未确认前停止并报告。
+- 禁止未经确认运行 `cmd/init_mongo.go`、`cmd/init_mongo.sh` 或等价数据重建操作。
+- 不夹带无关格式化/清理，不自动创建 Git Commit。
+
+## 修改前后
+
+修改前：确认需求与契约、检查 `git status`、定位测试和事实来源、识别敏感/破坏性操作。
+
+修改后：检查最小 diff，运行适用的格式、静态检查、测试和构建命令；同步 Rules、Spec、
+Knowledge 或 README 中受影响的事实；明确未验证项和残余风险。

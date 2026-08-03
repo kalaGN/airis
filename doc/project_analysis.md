@@ -1,8 +1,8 @@
 # Airis 项目现状分析
 
-> 分析日期：2026-07-17  
-> 分析分支：`main`  
-> 基线提交：`97a732c feat: 限流调整为每秒5000；更新README；完善错误码与签名校验`
+> 分析日期：2026-08-03
+> 分析分支：`main`
+> 基线提交：`63726d5 feat: load signing secret from environment`
 
 ## 1. 分析结论
 
@@ -59,7 +59,7 @@ POST /loan
 | `app/middleware/` | CORS、日志、限流和认证 | 部分为占位实现 |
 | `app/models/` | 贷款模型及通用响应 | 未进入核心调用链 |
 | `app/repositories/` | Repository 接口 | 无实现、未使用 |
-| `pkg/config/` | 应用配置 | 已接入但未执行有效校验 |
+| `pkg/config/` | 应用配置 | 已接入；主程序执行必填校验，但配置入口仍重复 |
 | `pkg/env/` | 重复读取 MongoDB 环境变量 | 已接入，和 config 职责重复 |
 | `pkg/mongo/` | Mongo 连接池、查询、解压和结果映射 | 已接入 |
 | `pkg/redis/` | Redis 客户端封装 | 未接入业务 |
@@ -244,7 +244,37 @@ MongoDB 配置同时存在于：
 - README 宣称 Redis 连接池属于功能特性，但当前核心流程没有初始化或使用 Redis；
 - README 中的认证示例没有反映 `/loan` 当前真实注册方式；
 - 项目根目录缺少 `AGENTS.md` 等工程规则文件；
-- 工作区根目录存在约 28 MB 的本地编译产物 `main` 和约 2.8 MB 的 `access.log`，虽然未被 Git 跟踪，但会污染开发环境。
+- 仓库跟踪了约 27 MB 的 macOS arm64 编译产物 `main`，增加仓库体积且不具备跨平台复用价值；约 2.7 MB 的 `access.log` 已被忽略但会污染本地工作区。
+
+### 7.1 AI Coding 文档体系
+
+2026-08-03 盘点时，仓库不存在 `docs/`、`docs/specs/` 或 `docs/knowledges/`，只有既有的
+扁平 `doc/` 目录。为避免调整目录结构，本次在根目录增加 `AGENTS.md`，并在 `doc/` 下增加：
+
+- `README.md`：Rules、Specs、Knowledge 总索引和冲突处理；
+- `project_rules.md`：长期项目规则；
+- `spec_guidelines.md`：Spec 命名、模板和生命周期；
+- `knowledge_index.md`：现有知识文件索引和加载规则。
+
+### 7.2 现状审计清单
+
+| 优先级 | 问题与证据 | 影响 | 建议 |
+| --- | --- | --- | --- |
+| P0 | `app/middleware/logger.go` 完整读取并记录请求/响应，Loan body 含 phone、apikey、sign | 敏感信息泄露；无界内存和高 QPS 日志放大 | 先建安全 Spec，删除或掩码敏感字段并限制采集大小 |
+| P0 | `app/Http/controllers/loan/index.go` 只检查 apikey 非空；`auth.go` 是未挂载占位代码 | 不能确认调用主体、状态和权限 | 确认 API Key 权威来源及客户密钥绑定后实现认证 |
+| P1 | `pkg/utils/sid.go` 跨请求共享非并发安全的 `math/rand.Rand` | 并发数据竞争，SID 可靠性不可证明 | 使用并发安全随机源并增加并发测试 |
+| P1 | `pkg/mongo/mongo.go` 使用 `sync.Once` 固化首次连接/Ping 结果 | 首次故障后不能进程内恢复 | 启动初始化或设计可重试、可替换生命周期 |
+| P1 | Loan 把 Mongo、未查得、解压等错误统一映射为 HTTP 200 + `ErrDataNotFound` 并返回原始错误 | 误导调用方和监控，泄露内部信息 | 先确认现有客户契约，再区分稳定领域错误 |
+| P1 | Controller、路由、中间件、Mongo 和配置无测试 | 核心行为、并发和故障回归无法发现 | 优先补 `httptest` 组件测试和隔离 Mongo 集成测试 |
+| P1 | `pcode` 从 JSON `float64` 直接转 `int` | 小数可能被截断，输入校验不严格 | 以契约测试固定整数要求后修正 DTO/解析 |
+| P1 | `cmd/init_mongo.go` 对 16 个同名集合执行 `Drop` | 误用会造成数据丢失 | 仅授权测试环境运行，增加目标确认与回滚方案 |
+| P2 | `pkg/config`、`pkg/env`、Controller 和 `GetMongo` 重复读取/覆盖配置 | 语义混乱，测试困难，运行配置可能不一致 | 在独立重构 Spec 中统一配置边界 |
+| P2 | Redis、Repository/Model、gRPC 示例和旧 Mongo 连接函数未进入主链路 | 增加维护成本并造成能力误判 | 由负责人确认规划后再保留、隔离或删除 |
+| P2 | `README.md` 的 Go 1.18+、JWT/API Key、Redis、Docker 和限流描述与代码不一致 | 新成员和 AI 使用错误事实 | 单独审查 README；本次只记录，不擅自改产品说明 |
+| P2 | 无 CI、项目级 Lint、漏洞扫描、覆盖率门槛或部署清单 | 质量门禁依赖人工执行 | 待团队确认平台和门槛后通过 Spec 引入 |
+| P2 | 跟踪约 27 MB 的本机 Mach-O `main` 二进制；`.gitignore` 未覆盖根构建产物 | 仓库膨胀、跨平台无效 | 确认发布流程后单独清理历史与忽略规则 |
+| P2 | `/health` 只返回 `ok`，无 readiness/liveness、Metrics、Tracing 或 Request ID | 依赖故障不可见，排障关联不足 | 先定义运维语义和平台，再补可观测能力 |
+| P2 | 历史 `tests/bench/bench.sh` 请求体只有 phone，与当前 Loan 必填字段不兼容 | 脚本当前不能有效压测成功业务路径 | 在性能 Spec 中修订测试数据生成与安全注入 |
 
 ## 8. 建议实施路线
 

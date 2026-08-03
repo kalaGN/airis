@@ -1,0 +1,32 @@
+# Knowledge 索引
+
+Knowledge 只记录已确认的项目事实、当前实现和历史决策。强制约束写入
+[`project_rules.md`](project_rules.md)，单次需求和设计遵循
+[`spec_guidelines.md`](spec_guidelines.md)。
+
+## 现有知识
+
+| 文件 | 内容 | 使用场景 | 可信度与限制 |
+| --- | --- | --- | --- |
+| [`project_analysis.md`](project_analysis.md) | 当前仓库形态、调用链、质量与风险审计 | 规划、评审、整改排序 | 以标注日期和提交为基线；变更后需复核 |
+| [`performance_test_report.md`](performance_test_report.md) | 2025-11-15 macOS / Go 1.23.3 的本地 ab 数据 | 性能历史对比 | 非生产容量承诺；部分原因和建议是未验证推测 |
+| [`gin_migration_design.md`](gin_migration_design.md) | 从 Iris 迁移到 Gin 的历史设计 | 追溯迁移背景 | 当前迁移已完成；“当前 Iris/目标 Gin”等描述已过期 |
+| [`../README.md`](../README.md) | 项目使用说明 | 本地启动和接口概览 | Go 版本、认证、Redis、Docker 等描述存在已知偏差 |
+| [`../cmd/README.md`](../cmd/README.md) | 测试 Mongo 数据生成方式 | 经授权初始化测试数据 | 对应命令会删除集合，属于高风险操作 |
+| [`../tests/bench/README.md`](../tests/bench/README.md) | 压测脚本说明 | 重建压测方法 | 当前脚本请求体缺少必填签名字段，运行前需修订 Spec |
+
+## 按任务加载
+
+- 修改路由、Controller、配置或数据查询：读 `project_analysis.md`，再以相关源码为准。
+- 性能优化或容量讨论：读历史性能报告和压测脚本；必须记录新旧环境、数据和日志配置。
+- 迁移历史或 Gin 选择背景：读迁移设计；不要复制其中已过期的 Iris 状态。
+- 数据初始化：读 `cmd/README.md` 和 `cmd/init_mongo.go`，明确目标数据库并取得授权。
+
+## 维护规则
+
+- 每个结论附事实来源或验证日期；推测不得写成事实。
+- 代码、配置或测试变化导致知识过期时，同一变更同步更新或显式标记过期。
+- 性能报告保留测试环境、参数、原始指标和失败率；本地结果不得外推生产容量。
+- 运维步骤必须写明前置条件、副作用、目标环境和回滚方式。
+- 新增 Knowledge 后更新本索引；不调整目录层级。
+- 聊天记录、生成代码注释和第三方示例不是长期事实来源。
