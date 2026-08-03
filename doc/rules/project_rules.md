@@ -1,7 +1,7 @@
 # Airis 项目规则
 
 本文件是长期强制约束。事实基线为 2026-08-03 的 `main` 分支提交 `63726d5`；具体实现变化后
-必须重新核对源代码。规则冲突处理见 [`README.md`](README.md)。
+必须重新核对源代码。规则冲突处理见 [`../README.md`](../README.md)。
 
 ## 1. 项目与技术基线
 
@@ -259,7 +259,7 @@ go build ./...
 
 ### 历史基线
 
-`performance_test_report.md` 记录了 2025-11-15 在 macOS 15.3.2、Go 1.23.3、Apache Bench
+`../knowledge/performance_test_report.md` 记录了 2025-11-15 在 macOS 15.3.2、Go 1.23.3、Apache Bench
 下的本地结果：Health 最佳记录 16,852 req/s、对应 P99 49 ms；Loan 在 100 并发记录
 7,208 req/s、P99 28 ms、失败 0。150 并发 Health 场景只完成 4,547/10,000 请求并出现连接重置。
 
