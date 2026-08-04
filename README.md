@@ -122,7 +122,7 @@ go build -o airis main.go
 # 健康检查
 curl http://localhost:8082/health
 
-# 贷款接口
+# 数据接口
 curl -X POST http://localhost:8082/loan \
   -H "Content-Type: application/json" \
   -d '{"phone":"test123","pcode":10001,"apikey":"your_api_key","timestamp":1730000000000,"sign":"UPPERCASE_MD5_32_CHARS"}'
@@ -138,7 +138,7 @@ GET /health
 
 返回：`ok`
 
-### 贷款接口
+### 数据接口
 
 ```
 POST /loan

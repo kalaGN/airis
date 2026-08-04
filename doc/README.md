@@ -12,6 +12,7 @@
 | [`rules/spec_guidelines.md`](rules/spec_guidelines.md) | Rules / Specs | 何时创建 Spec、命名、模板和生命周期 | 复杂需求、设计、迁移 |
 | [`specs/`](specs/README.md) | Specs 索引 | 需求、设计和任务 Spec 的分层入口 | 复杂需求、设计、迁移 |
 | [`specs/20260803-apikey账号鉴权-设计.md`](specs/20260803-apikey账号鉴权-设计.md) | Specs / 设计 | API Key 三层存储与每账号独立 secret 鉴权方案 | `/loan` API Key 鉴权实施前评审 |
+| [`specs/20260803-apikey账号鉴权-任务.md`](specs/20260803-apikey账号鉴权-任务.md) | Specs / 任务 | API Key 账号鉴权的依赖顺序、开发切片和验证门禁 | 鉴权实施与分阶段评审 |
 | [`knowledge/`](knowledge/README.md) | Knowledge 索引 | 已确认知识、审计、性能数据和历史决策 | 排障、架构、性能、历史背景 |
 | [`knowledge/project_analysis.md`](knowledge/project_analysis.md) | Knowledge / 审计 | 当前仓库事实、风险、证据和待确认项 | 规划整改、Code Review |
 | [`knowledge/performance_test_report.md`](knowledge/performance_test_report.md) | Knowledge | 2025-11-15 本地 Apache Bench 历史结果 | 性能变更前的历史参考 |
