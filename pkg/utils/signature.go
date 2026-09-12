@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/md5"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"sort"
@@ -54,5 +55,6 @@ func GenerateSign(params map[string]interface{}, secretKey string) string {
 // VerifySign 验证签名
 func VerifySign(params map[string]interface{}, sign string, secretKey string) bool {
 	expectedSign := GenerateSign(params, secretKey)
-	return expectedSign == strings.ToUpper(sign)
+	actualSign := strings.ToUpper(sign)
+	return subtle.ConstantTimeCompare([]byte(expectedSign), []byte(actualSign)) == 1
 }

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,7 +75,7 @@ func TestVerifySign(t *testing.T) {
 	}
 
 	secretKey := "test_secret"
-	
+
 	// 生成签名
 	sign := GenerateSign(params, secretKey)
 
@@ -91,5 +92,10 @@ func TestVerifySign(t *testing.T) {
 	// 验证错误的密钥
 	if VerifySign(params, sign, "wrong_secret") {
 		t.Error("Wrong secret key should fail verification")
+	}
+
+	// 保持现有大小写兼容契约。
+	if !VerifySign(params, strings.ToLower(sign), secretKey) {
+		t.Error("Lowercase valid sign should pass verification")
 	}
 }

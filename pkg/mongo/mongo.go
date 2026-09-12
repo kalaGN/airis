@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
-	"sync"
-	"github.com/kalaGN/airis/pkg/config"
-	"github.com/kalaGN/airis/pkg/env"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/kalaGN/airis/pkg/config"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Config 包含 MongoDB 连接信息和查询条件
@@ -25,67 +26,104 @@ type Config struct {
 }
 
 var (
-	client *mongo.Client
-	once   sync.Once
-	clientErr error
+	ErrNotFound    = errors.New("MongoDB document not found")
+	ErrInvalidData = errors.New("invalid MongoDB document data")
+	ErrUnavailable = errors.New("MongoDB unavailable")
 )
+
+type clientManager struct {
+	mu         sync.Mutex
+	client     *mongo.Client
+	connect    func(context.Context) (*mongo.Client, error)
+	disconnect func(context.Context, *mongo.Client) error
+}
+
+var clients = clientManager{
+	connect: connectMongoClient,
+	disconnect: func(ctx context.Context, client *mongo.Client) error {
+		return client.Disconnect(ctx)
+	},
+}
 
 // GetClient 获取全局 MongoDB 客户端（单例模式 + 连接池）
 func GetClient(ctx context.Context) (*mongo.Client, error) {
-	once.Do(func() {
-		cfg := config.GetMongoConfig()
-		if cfg.DSN == "" {
-			clientErr = fmt.Errorf("MongoDB DSN is empty")
-			return
-		}
-
-		// 配置连接池参数
-		clientOptions := options.Client().
-			ApplyURI(cfg.DSN).
-			SetMaxPoolSize(uint64(cfg.MaxPool)).
-			SetMinPoolSize(uint64(cfg.MinPool)).
-			SetMaxConnIdleTime(30 * time.Second).
-			SetConnectTimeout(5 * time.Second).
-			SetServerSelectionTimeout(5 * time.Second)
-
-		// 连接 MongoDB
-		var err error
-		client, err = mongo.Connect(ctx, clientOptions)
-		if err != nil {
-			clientErr = fmt.Errorf("failed to connect to MongoDB: %v", err)
-			return
-		}
-
-		// 测试连接
-		err = client.Ping(ctx, nil)
-		if err != nil {
-			clientErr = fmt.Errorf("failed to ping MongoDB: %v", err)
-			return
-		}
-
-		log.Println("MongoDB connected with connection pool")
-	})
-
-	return client, clientErr
+	return clients.get(ctx)
 }
 
 // Close 关闭 MongoDB 连接
 func Close(ctx context.Context) error {
-	if client != nil {
-		return client.Disconnect(ctx)
-	}
-	return nil
+	return clients.close(ctx)
 }
 
-func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
-	dsn, db, collectionName, _, _ := env.GetQa()
-	if dsn == "" || db == "" {
-		return nil, fmt.Errorf("invalid DSN or DB configuration")
+func (manager *clientManager) get(ctx context.Context) (*mongo.Client, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+
+	if manager.client != nil {
+		return manager.client, nil
 	}
-	config.DSN = dsn
-	config.DB = db
-	if config.Collection == "" {
-		config.Collection = collectionName
+	client, err := manager.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	manager.client = client
+	return client, nil
+}
+
+func (manager *clientManager) close(ctx context.Context) error {
+	manager.mu.Lock()
+	client := manager.client
+	manager.client = nil
+	manager.mu.Unlock()
+
+	if client == nil || manager.disconnect == nil {
+		return nil
+	}
+	return manager.disconnect(ctx, client)
+}
+
+func connectMongoClient(ctx context.Context) (*mongo.Client, error) {
+	cfg := config.GetMongoConfig()
+	if cfg.DSN == "" {
+		return nil, fmt.Errorf("%w: DSN is empty", ErrUnavailable)
+	}
+
+	clientOptions := options.Client().
+		ApplyURI(cfg.DSN).
+		SetMaxPoolSize(uint64(cfg.MaxPool)).
+		SetMinPoolSize(uint64(cfg.MinPool)).
+		SetMaxConnIdleTime(30 * time.Second).
+		SetConnectTimeout(5 * time.Second).
+		SetServerSelectionTimeout(5 * time.Second)
+
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		return nil, classifyMongoError("connect", err)
+	}
+	if err := client.Ping(ctx, nil); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = client.Disconnect(cleanupCtx)
+		return nil, classifyMongoError("ping", err)
+	}
+
+	log.Println("MongoDB connected with connection pool")
+	return client, nil
+}
+
+func GetMongo(ctx context.Context, queryConfig Config) (map[string]int, error) {
+	appConfig := config.GetMongoConfig()
+	if queryConfig.DSN == "" {
+		queryConfig.DSN = appConfig.DSN
+	}
+	if queryConfig.DB == "" {
+		queryConfig.DB = appConfig.Database
+	}
+	if queryConfig.Collection == "" {
+		queryConfig.Collection = appConfig.Collection
+	}
+	if queryConfig.DSN == "" || queryConfig.DB == "" {
+		return nil, fmt.Errorf("%w: invalid DSN or database configuration", ErrUnavailable)
 	}
 
 	// 使用连接池客户端
@@ -95,10 +133,10 @@ func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
 	}
 
 	// 获取数据库实例
-	database := client.Database(config.DB)
-	
+	database := client.Database(queryConfig.DB)
+
 	// 使用配置的集合名称，如果未指定则使用默认值
-	colName := config.Collection
+	colName := queryConfig.Collection
 	if colName == "" {
 		colName = "data_20251101_0"
 	}
@@ -107,7 +145,7 @@ func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
 	query := struct {
 		T string `bson:"t"`
 	}{
-		T: config.Query,
+		T: queryConfig.Query,
 	}
 
 	var foundDoc struct {
@@ -117,20 +155,27 @@ func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
 
 	err = collection.FindOne(ctx, query).Decode(&foundDoc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find document: %v", err)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, fmt.Errorf("%w: query returned no document", ErrNotFound)
+		}
+		return nil, classifyMongoError("find document", err)
 	}
 
-	// 解压 V 字段
-	decompressedData, err := gzipDecompress(foundDoc.V)
+	return decodeUserData(foundDoc.V)
+}
+
+func classifyMongoError(action string, err error) error {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return fmt.Errorf("MongoDB %s: %w", action, err)
+	}
+	return fmt.Errorf("%w during %s: %w", ErrUnavailable, action, err)
+}
+
+func decodeUserData(data []byte) (map[string]int, error) {
+	decompressedData, err := gzipDecompress(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decompress data: %v", err)
+		return nil, fmt.Errorf("%w: decompress payload: %v", ErrInvalidData, err)
 	}
-
-	// 将解压后的数据转换为字符串
-	decompressedUserData := string(decompressedData)
-
-	// 解析逗号分隔的字符串为数组
-	userDataArray := strings.Split(decompressedUserData, ",")
 
 	varList := map[string]int{
 		"var100001": 0,
@@ -140,8 +185,7 @@ func GetMongo(ctx context.Context, config Config) (map[string]int, error) {
 		"var100005": 4,
 		"var100006": 5,
 	}
-	result := ProcessUserData(varList, userDataArray)
-	return result, nil
+	return ProcessUserData(varList, strings.Split(string(decompressedData), ","))
 }
 
 func connectToMongoDB(ctx context.Context, dsn string) (*mongo.Client, error) {
@@ -192,20 +236,29 @@ func gzipDecompress(data []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func ProcessUserData(varlist map[string]int, userDataArray []string) map[string]int {
+func ProcessUserData(varlist map[string]int, userDataArray []string) (map[string]int, error) {
+	requiredFields := 0
+	for _, index := range varlist {
+		if index < 0 {
+			return nil, fmt.Errorf("%w: negative field index %d", ErrInvalidData, index)
+		}
+		if index+1 > requiredFields {
+			requiredFields = index + 1
+		}
+	}
+	if len(userDataArray) != requiredFields {
+		return nil, fmt.Errorf("%w: got %d fields, want %d", ErrInvalidData, len(userDataArray), requiredFields)
+	}
+
 	result := make(map[string]int)
 
 	for key, index := range varlist {
-		if index >= 0 && index < len(userDataArray) {
-			value, err := strconv.Atoi(userDataArray[index])
-			if err != nil {
-				// 处理转换错误，可以选择跳过或记录日志
-				fmt.Printf("Error converting string to int for key %s: %v\n", key, err)
-				continue
-			}
-			result[key] = value
+		value, err := strconv.Atoi(userDataArray[index])
+		if err != nil {
+			return nil, fmt.Errorf("%w: field %s is not an integer", ErrInvalidData, key)
 		}
+		result[key] = value
 	}
 
-	return result
+	return result, nil
 }

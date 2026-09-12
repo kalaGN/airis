@@ -1,7 +1,8 @@
 # Airis 项目规则
 
-本文件是长期强制约束。事实基线为 2026-08-03 的 `main` 分支提交 `63726d5`；具体实现变化后
-必须重新核对源代码。规则冲突处理见 [`../README.md`](../README.md)。
+本文件是长期强制约束。事实于 2026-09-12 基于 `main` 分支提交 `69cf7e5` 及
+[`核心稳定性修复`](../specs/20260912-核心稳定性修复-需求.md)工作树复核；具体实现变化后必须重新
+核对源代码。规则冲突处理见 [`../README.md`](../README.md)。
 
 ## 1. 项目与技术基线
 
@@ -23,7 +24,8 @@
 | `routes/` | `GET /health`、`POST /loan` 注册 |
 | `app/Http/controllers/loan/` | 请求校验、签名、Mongo 调用和 HTTP 响应 |
 | `app/middleware/` | Recovery 之外的 CORS、日志、进程内限流；认证代码未启用 |
-| `pkg/config/`、`pkg/env/` | 环境配置；当前存在重复入口 |
+| `pkg/config/` | 主调用链的环境配置入口 |
+| `pkg/env/` | 遗留的重复配置工具，当前未进入主调用链 |
 | `pkg/mongo/` | Mongo 客户端、查询、gzip 解压和变量映射 |
 | `pkg/redis/` | 未接入主链路的 Redis 封装 |
 | `pkg/rescode/`、`pkg/utils/` | 业务码、SID、时间戳和签名工具 |
@@ -80,8 +82,8 @@ main.go
       → CommonRes JSON
 ```
 
-这是当前实现描述，不代表目标分层设计。Controller 直接依赖 `pkg/env`、`pkg/mongo`、`pkg/rescode`
-和 `pkg/utils`；Repository 接口尚未使用。
+这是当前实现描述，不代表目标分层设计。Controller 直接依赖 `pkg/config`、`pkg/mongo`、
+`pkg/rescode` 和 `pkg/utils`；Repository 接口尚未使用。
 
 ### 职责与依赖
 
@@ -102,7 +104,8 @@ main.go
 ### 错误边界
 
 - 底层错误在数据访问边界保留原因，在 HTTP 边界转换为稳定、无敏感信息的契约错误。
-- 当前 Controller 将多类 Mongo/数据错误映射为 HTTP 200 + `ErrDataNotFound` 是已知风险，不是推荐模式。
+- 当前 Controller 区分 Mongo 未查得、超时、不可用和数据损坏，并在 HTTP 边界映射稳定业务码；
+  详细底层错误只写内部日志。
 - 修改状态码、业务码或错误体可能影响客户契约，必须先确认 Spec 和兼容方案。
 - 不忽略、覆盖或只打印错误；返回、分类或使用项目 logger 记录必要上下文。
 
@@ -115,7 +118,8 @@ main.go
 | `GET /health` | 无业务参数 | HTTP 200，纯文本 `ok` |
 | `POST /loan` | `application/json`；`phone`、`pcode`、`apikey`、`timestamp`、`sign` | JSON：`status`、`msg`、`sid`、`data` |
 
-- `/loan` 的 `pcode` 当前允许范围为 10001–99999；`timestamp` 使用毫秒并限制为过去 5 分钟内。
+- `/loan` 的 `pcode` 只接受 JSON 整数且范围为 10001–99999；`timestamp` 只接受 JSON 整数，
+  使用毫秒并限制为过去 5 分钟内。字符串、小数、指数形式和整数溢出值均拒绝。
 - 签名当前把 `phone`、`pcode`、`apikey`、`timestamp` 按 key 排序拼接，加 `SECRET_KEY` 后计算
   大写 MD5。该算法存在安全/演进风险，但在确认客户端兼容前不得擅自替换。
 - 成功数据字段当前为 `var100001` 至 `var100006`。字段名、类型、缺省行为都是契约候选，变更需 Spec。
@@ -156,7 +160,7 @@ main.go
 ### 并发与资源
 
 - Gin Handler 会并发执行；共享 map、随机源、客户端状态必须证明并发安全并有并发测试。
-- `math/rand.Rand` 实例不可无同步地跨请求共享；当前 SID 实现是已知风险。
+- SID 使用 `crypto/rand` 和拒绝采样；随机源失败必须返回错误，禁止降级到可预测值。
 - Goroutine 必须有清晰所有者、停止方式和生命周期；禁止不可停止的新增后台循环。
 - 外部 I/O 传递请求 Context，并设置明确超时；不得用 `context.Background()` 丢失取消传播。
 - 打开的响应体、文件、压缩流、连接和 ticker 必须在所有路径释放。
@@ -173,8 +177,9 @@ main.go
 
 ### 当前事实
 
-- 使用 Go 标准 `testing`；测试位于 `pkg/utils`、`pkg/rescode` 和 HelloWorld Proto 包。
-- Controller、路由、中间件、Mongo、Redis、配置和主程序目前没有自动化测试。
+- 使用 Go 标准 `testing`；测试覆盖 `pkg/utils`、`pkg/rescode`、Mongo、Loan Controller、路由、
+  中间件、主程序关闭编排和 HelloWorld Proto 包。
+- Redis 及真实 Mongo 集成行为目前没有直接自动化测试；配置加载和必填校验已有单元测试。
 - 没有真实覆盖率门槛、集成测试环境或 E2E 门禁。
 
 ### 测试层级
@@ -218,9 +223,10 @@ go build ./...
 
 - `apikey` 只检查非空，没有真实性、状态、主体或权限校验；认证中间件未挂载且仅为占位。
 - 日志完整记录请求/响应，可能泄露 phone、apikey、sign 和结果数据。
-- 签名使用 MD5 和普通字符串比较，且五分钟内没有 nonce/幂等防重放机制。
+- 签名仍使用 MD5，但比较已使用常量时间实现；五分钟内仍没有 nonce/幂等防重放机制。
 - CORS 为 `*`；允许来源、凭据需求和反向代理信任边界待确认。
-- 底层 Mongo/解压错误会直接返回客户端，存在内部信息泄露。
+- 日志中间件仍记录完整请求/响应；Loan Controller 已停止向客户端返回 Mongo/解压原始错误，
+  其他边界是否泄露内部信息仍需逐项审计。
 
 ### 强制规则
 
@@ -240,7 +246,7 @@ go build ./...
 
 - HTTP Server 配置 10 秒 Read/Write Timeout、1 MiB Header；关闭超时 5 秒。
 - `GET /health` 只证明 HTTP 进程可响应，不检查 Mongo readiness，也没有独立 liveness/readiness。
-- Mongo 连接用 `sync.Once`；首次连接失败后进程内不会重试，是已知恢复风险。
+- Mongo 客户端只在 Connect + Ping 成功后发布；初始化失败可重试，关闭后可重新初始化。
 - 限流是单进程、按 IP 的内存计数器，每秒 5000；多实例不共享状态。
 - 使用 Logrus；生产 JSON、非生产文本。没有确认 Metrics、Tracing、告警或稳定 Request ID。
 

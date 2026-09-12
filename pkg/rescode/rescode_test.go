@@ -1,7 +1,7 @@
 package rescode
 
 import (
-"testing"
+	"testing"
 )
 
 func TestGetCodeMsg(t *testing.T) {
@@ -42,7 +42,7 @@ func TestIsParamError(t *testing.T) {
 		{ErrInvalidApikey, false},
 		{ErrDataNotFound, false},
 	}
-	
+
 	for _, tt := range tests {
 		got := IsParamError(tt.code)
 		if got != tt.expected {

@@ -4,8 +4,8 @@
 package env
 
 import (
-    "github.com/joho/godotenv"
-    "os"
+	"github.com/joho/godotenv"
+	"os"
 )
 
 // ConfigFunc 动态加载配置信息

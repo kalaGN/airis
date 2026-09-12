@@ -1,12 +1,16 @@
 package loan
 
 import (
-	"fmt"
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	appconfig "github.com/kalaGN/airis/pkg/config"
-	"github.com/kalaGN/airis/pkg/env"
+	"github.com/kalaGN/airis/pkg/logger"
 	"github.com/kalaGN/airis/pkg/mongo"
 	"github.com/kalaGN/airis/pkg/rescode"
 	"github.com/kalaGN/airis/pkg/utils"
@@ -19,51 +23,81 @@ type CommonRes struct {
 	Data   map[string]int `json:"data"`
 }
 
-func Create(c *gin.Context) {
-	// 生成会话 ID
-	sid := utils.GenerateSID("100", 29)
+type createRequest struct {
+	Phone     strictString  `json:"phone"`
+	Pcode     strictInteger `json:"pcode"`
+	Apikey    string        `json:"apikey"`
+	Timestamp strictInteger `json:"timestamp"`
+	Sign      string        `json:"sign"`
+}
 
-	var body struct {
-		Phone     interface{} `json:"phone"`
-		Pcode     interface{} `json:"pcode"`
-		Apikey    string      `json:"apikey"`
-		Timestamp interface{} `json:"timestamp"`
-		Sign      string      `json:"sign"`
+type strictString struct {
+	value string
+	err   error
+	set   bool
+}
+
+func (value *strictString) UnmarshalJSON(data []byte) error {
+	value.set = true
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		value.err = errors.New("value must be a JSON string")
+		return nil
 	}
+	value.err = json.Unmarshal(data, &value.value)
+	return nil
+}
+
+type strictInteger struct {
+	value int64
+	err   error
+	set   bool
+}
+
+func (integer *strictInteger) UnmarshalJSON(data []byte) error {
+	integer.set = true
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || data[0] == '"' {
+		integer.err = errors.New("value must be a JSON integer")
+		return nil
+	}
+	integer.value, integer.err = strconv.ParseInt(string(data), 10, 64)
+	return nil
+}
+
+type queryFunc func(context.Context, mongo.Config) (map[string]int, error)
+type sidFunc func(string, int) (string, error)
+
+func Create(c *gin.Context) {
+	create(c, mongo.GetMongo, utils.GenerateSID, appconfig.GetSecretKey())
+}
+
+func create(c *gin.Context, query queryFunc, generateSID sidFunc, secretKey string) {
+	var body createRequest
 
 	// 绑定 JSON
 	if err := c.ShouldBindJSON(&body); err != nil {
-		fmt.Printf("Error reading JSON: %v\n", err)
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidJSON, Msg: rescode.GetCodeMsg(rescode.ErrInvalidJSON), Sid: ""})
 		return
 	}
 
-	// 类型断言以确保 phone 是字符串
-	phone, ok := body.Phone.(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPhone, Msg: "phone must be a string", Sid: ""})
+	if body.Phone.set && body.Phone.err != nil {
+		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPhone, Msg: rescode.GetCodeMsg(rescode.ErrInvalidPhone), Sid: ""})
 		return
 	}
-	if phone == "" {
+	if body.Phone.value == "" {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrMissingParam, Msg: "phone is required", Sid: ""})
 		return
 	}
 
-	// 验证 pcode（10001-99999 的数字）
-	var pcode int
-	switch v := body.Pcode.(type) {
-	case float64:
-		pcode = int(v)
-	case int:
-		pcode = v
-	default:
+	if !body.Pcode.set || body.Pcode.err != nil {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPcode, Msg: "pcode must be a number", Sid: ""})
 		return
 	}
-	if pcode < 10001 || pcode > 99999 {
+	if body.Pcode.value < 10001 || body.Pcode.value > 99999 {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidPcode, Msg: rescode.GetCodeMsg(rescode.ErrInvalidPcode), Sid: ""})
 		return
 	}
+	pcode := int(body.Pcode.value)
 
 	// 验证 apikey
 	if body.Apikey == "" {
@@ -71,19 +105,11 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	// 验证 timestamp（毫秒时间戳）
-	var timestamp int64
-	switch v := body.Timestamp.(type) {
-	case float64:
-		timestamp = int64(v)
-	case int64:
-		timestamp = v
-	case int:
-		timestamp = int64(v)
-	default:
+	if !body.Timestamp.set || body.Timestamp.err != nil {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidTimestamp, Msg: "timestamp must be a number", Sid: ""})
 		return
 	}
+	timestamp := body.Timestamp.value
 	if !utils.VerifyTimestamp(timestamp) {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidTimestamp, Msg: rescode.GetCodeMsg(rescode.ErrInvalidTimestamp), Sid: ""})
 		return
@@ -97,39 +123,60 @@ func Create(c *gin.Context) {
 
 	// 构建签名参数
 	signParams := map[string]interface{}{
-		"phone":     phone,
+		"phone":     body.Phone.value,
 		"pcode":     pcode,
 		"apikey":    body.Apikey,
 		"timestamp": timestamp,
 	}
 
-	if !utils.VerifySign(signParams, body.Sign, appconfig.GetSecretKey()) {
+	if !utils.VerifySign(signParams, body.Sign, secretKey) {
 		c.JSON(http.StatusBadRequest, CommonRes{Status: rescode.ErrInvalidSign, Msg: rescode.GetCodeMsg(rescode.ErrInvalidSign), Sid: ""})
 		return
 	}
 
-	// 准备配置
-	config := mongo.Config{
-		DSN:   "", // 这里通常是空的，因为实际 DSN 和 DB 会从 env.GetQa 获取
-		DB:    "",
-		Query: "some_query_value", // 根据实际情况设置查询条件
-	}
-
-	config.DSN, config.DB, config.Collection, _, _ = env.GetQa()
-	// 使用 phone 作为查询条件，这样可以灵活查询
-	config.Query = phone
-
-	// 调用 GetMongo 方法，使用 Gin 的 Request Context
-	result, err := mongo.GetMongo(c.Request.Context(), config)
+	sid, err := generateSID("100", 29)
 	if err != nil {
-		c.JSON(http.StatusOK, CommonRes{Status: rescode.ErrDataNotFound, Msg: err.Error(), Sid: "", Data: nil})
+		logInternalError("generate SID", err)
+		c.JSON(http.StatusInternalServerError, CommonRes{Status: rescode.ErrInternalError, Msg: rescode.GetCodeMsg(rescode.ErrInternalError)})
 		return
 	}
 
-	fmt.Println("Successfully retrieved and processed data   ")
+	mongoConfig := appconfig.GetMongoConfig()
+	queryConfig := mongo.Config{
+		DSN:        mongoConfig.DSN,
+		DB:         mongoConfig.Database,
+		Collection: mongoConfig.Collection,
+		Query:      body.Phone.value,
+	}
 
-	// 构建响应体
-	d1 := CommonRes{rescode.SuccessCode, rescode.GetCodeMsg(rescode.SuccessCode), sid, result}
-	// 将响应体以 JSON 格式发送回客户端。
-	c.JSON(http.StatusOK, d1)
+	result, err := query(c.Request.Context(), queryConfig)
+	if err != nil {
+		writeQueryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, CommonRes{Status: rescode.SuccessCode, Msg: rescode.GetCodeMsg(rescode.SuccessCode), Sid: sid, Data: result})
+}
+
+func writeQueryError(c *gin.Context, err error) {
+	logInternalError("query loan data", err)
+
+	switch {
+	case errors.Is(err, mongo.ErrNotFound):
+		c.JSON(http.StatusOK, CommonRes{Status: rescode.ErrDataNotFound, Msg: rescode.GetCodeMsg(rescode.ErrDataNotFound)})
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		c.JSON(http.StatusGatewayTimeout, CommonRes{Status: rescode.ErrTimeout, Msg: rescode.GetCodeMsg(rescode.ErrTimeout)})
+	case errors.Is(err, mongo.ErrUnavailable):
+		c.JSON(http.StatusServiceUnavailable, CommonRes{Status: rescode.ErrServiceUnavailable, Msg: rescode.GetCodeMsg(rescode.ErrServiceUnavailable)})
+	case errors.Is(err, mongo.ErrInvalidData):
+		c.JSON(http.StatusInternalServerError, CommonRes{Status: rescode.ErrInternalError, Msg: rescode.GetCodeMsg(rescode.ErrInternalError)})
+	default:
+		c.JSON(http.StatusInternalServerError, CommonRes{Status: rescode.ErrInternalError, Msg: rescode.GetCodeMsg(rescode.ErrInternalError)})
+	}
+}
+
+func logInternalError(operation string, err error) {
+	if logger.Log != nil {
+		logger.Log.WithError(err).WithField("operation", operation).Error("Request processing failed")
+	}
 }

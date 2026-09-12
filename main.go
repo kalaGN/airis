@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -76,15 +78,27 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 关闭 MongoDB 连接
-	if err := mongo.Close(ctx); err != nil {
-		logger.Log.Errorf("Error closing MongoDB: %v", err)
-	}
-
-	// 关闭 HTTP 服务器
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Log.Fatalf("Server forced to shutdown: %v", err)
+	if err := shutdownResources(ctx, srv.Shutdown, mongo.Close); err != nil {
+		logger.Log.Errorf("Graceful shutdown completed with errors: %v", err)
 	}
 
 	logger.Log.Info("Application stopped")
+}
+
+func shutdownResources(
+	ctx context.Context,
+	shutdownHTTP func(context.Context) error,
+	closeMongo func(context.Context) error,
+) error {
+	httpErr := shutdownHTTP(ctx)
+	mongoErr := closeMongo(ctx)
+
+	var errs []error
+	if httpErr != nil {
+		errs = append(errs, fmt.Errorf("shutdown HTTP server: %w", httpErr))
+	}
+	if mongoErr != nil {
+		errs = append(errs, fmt.Errorf("close MongoDB: %w", mongoErr))
+	}
+	return errors.Join(errs...)
 }

@@ -1,33 +1,48 @@
 package utils
 
 import (
-	"math/rand"
+	"crypto/rand"
+	"fmt"
+	"io"
 	"strings"
-	"time"
 )
 
-var (
-	// charset 用于生成随机字符串的字符集
-	charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	// rnd 本地随机数生成器，避免并发竞争
-	rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
-)
+// charset 用于生成随机字符串的字符集。
+const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 // GenerateSID 生成会话 ID
 // prefix: ID 前缀
 // length: 随机部分的长度
-func GenerateSID(prefix string, length int) string {
-	var sb strings.Builder
-	sb.WriteString(prefix)
-	
-	for i := 0; i < length; i++ {
-		sb.WriteByte(charset[rnd.Intn(len(charset))])
+func GenerateSID(prefix string, length int) (string, error) {
+	return generateSID(prefix, length, rand.Reader)
+}
+
+func generateSID(prefix string, length int, reader io.Reader) (string, error) {
+	if length < 0 {
+		return "", fmt.Errorf("SID length must not be negative")
 	}
-	
-	return sb.String()
+
+	var sb strings.Builder
+	sb.Grow(len(prefix) + length)
+	sb.WriteString(prefix)
+
+	// 拒绝 252-255，避免 256 对字符集长度取模造成分布偏差。
+	limit := byte(256 - 256%len(charset))
+	var randomByte [1]byte
+	for sb.Len() < len(prefix)+length {
+		if _, err := io.ReadFull(reader, randomByte[:]); err != nil {
+			return "", fmt.Errorf("generate SID randomness: %w", err)
+		}
+		if randomByte[0] >= limit {
+			continue
+		}
+		sb.WriteByte(charset[int(randomByte[0])%len(charset)])
+	}
+
+	return sb.String(), nil
 }
 
 // GenerateRandomID 生成纯随机 ID（无前缀）
-func GenerateRandomID(length int) string {
+func GenerateRandomID(length int) (string, error) {
 	return GenerateSID("", length)
 }

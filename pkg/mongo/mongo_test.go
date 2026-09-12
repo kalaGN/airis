@@ -1,0 +1,186 @@
+package mongo
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
+	"testing"
+
+	drivermongo "go.mongodb.org/mongo-driver/mongo"
+)
+
+func TestClientManager_RetriesAfterInitializationFailure(t *testing.T) {
+	wantClient := &drivermongo.Client{}
+	var calls atomic.Int32
+	manager := clientManager{
+		connect: func(context.Context) (*drivermongo.Client, error) {
+			if calls.Add(1) == 1 {
+				return nil, errors.New("initial connection failed")
+			}
+			return wantClient, nil
+		},
+	}
+
+	if _, err := manager.get(context.Background()); err == nil {
+		t.Fatal("first get() error = nil, want initialization failure")
+	}
+	gotClient, err := manager.get(context.Background())
+	if err != nil {
+		t.Fatalf("second get() error = %v", err)
+	}
+	if gotClient != wantClient {
+		t.Fatalf("second get() client = %p, want %p", gotClient, wantClient)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("connect calls = %d, want 2", got)
+	}
+}
+
+func TestClientManager_ConcurrentInitializationPublishesOneClient(t *testing.T) {
+	wantClient := &drivermongo.Client{}
+	var calls atomic.Int32
+	manager := clientManager{
+		connect: func(context.Context) (*drivermongo.Client, error) {
+			calls.Add(1)
+			return wantClient, nil
+		},
+	}
+
+	const workers = 100
+	var wg sync.WaitGroup
+	errs := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			client, err := manager.get(context.Background())
+			if err != nil {
+				errs <- err
+				return
+			}
+			if client != wantClient {
+				errs <- errors.New("unexpected client instance")
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("connect calls = %d, want 1", got)
+	}
+}
+
+func TestClientManager_CloseAllowsReinitialization(t *testing.T) {
+	firstClient := &drivermongo.Client{}
+	secondClient := &drivermongo.Client{}
+	clients := []*drivermongo.Client{firstClient, secondClient}
+	var connectCalls int
+	var disconnected *drivermongo.Client
+	manager := clientManager{
+		connect: func(context.Context) (*drivermongo.Client, error) {
+			client := clients[connectCalls]
+			connectCalls++
+			return client, nil
+		},
+		disconnect: func(_ context.Context, client *drivermongo.Client) error {
+			disconnected = client
+			return nil
+		},
+	}
+
+	if _, err := manager.get(context.Background()); err != nil {
+		t.Fatalf("first get() error = %v", err)
+	}
+	if err := manager.close(context.Background()); err != nil {
+		t.Fatalf("close() error = %v", err)
+	}
+	gotClient, err := manager.get(context.Background())
+	if err != nil {
+		t.Fatalf("second get() error = %v", err)
+	}
+	if disconnected != firstClient {
+		t.Fatalf("disconnected client = %p, want %p", disconnected, firstClient)
+	}
+	if gotClient != secondClient {
+		t.Fatalf("second get() client = %p, want %p", gotClient, secondClient)
+	}
+	if connectCalls != 2 {
+		t.Fatalf("connect calls = %d, want 2", connectCalls)
+	}
+}
+
+func TestProcessUserData_StrictlyValidatesAllFields(t *testing.T) {
+	varList := map[string]int{"a": 0, "b": 1}
+
+	got, err := ProcessUserData(varList, []string{"10", "20"})
+	if err != nil {
+		t.Fatalf("ProcessUserData() error = %v", err)
+	}
+	if got["a"] != 10 || got["b"] != 20 {
+		t.Fatalf("ProcessUserData() = %#v, want a=10 b=20", got)
+	}
+
+	for _, values := range [][]string{
+		{"10"},
+		{"10", "20", "30"},
+		{"10", "invalid"},
+		{"10", ""},
+	} {
+		if _, err := ProcessUserData(varList, values); !errors.Is(err, ErrInvalidData) {
+			t.Errorf("ProcessUserData(%q) error = %v, want ErrInvalidData", values, err)
+		}
+	}
+}
+
+func TestDecodeUserData_RejectsCorruptPayload(t *testing.T) {
+	if _, err := decodeUserData([]byte("not gzip")); !errors.Is(err, ErrInvalidData) {
+		t.Fatalf("decodeUserData(corrupt) error = %v, want ErrInvalidData", err)
+	}
+
+	compressed := gzipBytes(t, []byte("1,2,3,4,5"))
+	if _, err := decodeUserData(compressed); !errors.Is(err, ErrInvalidData) {
+		t.Fatalf("decodeUserData(short payload) error = %v, want ErrInvalidData", err)
+	}
+
+	got, err := decodeUserData(gzipBytes(t, []byte("1,2,3,4,5,6")))
+	if err != nil {
+		t.Fatalf("decodeUserData(valid payload) error = %v", err)
+	}
+	if got["var100001"] != 1 || got["var100006"] != 6 {
+		t.Fatalf("decodeUserData(valid payload) = %#v", got)
+	}
+}
+
+func TestClassifyMongoError(t *testing.T) {
+	timeoutErr := classifyMongoError("query", context.DeadlineExceeded)
+	if !errors.Is(timeoutErr, context.DeadlineExceeded) {
+		t.Fatalf("timeout error = %v, want context.DeadlineExceeded", timeoutErr)
+	}
+	if errors.Is(timeoutErr, ErrUnavailable) {
+		t.Fatalf("timeout error = %v, must not be classified unavailable", timeoutErr)
+	}
+
+	unavailableErr := classifyMongoError("query", errors.New("network failure"))
+	if !errors.Is(unavailableErr, ErrUnavailable) {
+		t.Fatalf("unavailable error = %v, want ErrUnavailable", unavailableErr)
+	}
+}
+
+func gzipBytes(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	writer := gzip.NewWriter(&buffer)
+	if _, err := writer.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buffer.Bytes()
+}
