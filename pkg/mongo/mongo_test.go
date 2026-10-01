@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	drivermongo "go.mongodb.org/mongo-driver/mongo"
 )
@@ -169,6 +170,26 @@ func TestClassifyMongoError(t *testing.T) {
 	unavailableErr := classifyMongoError("query", errors.New("network failure"))
 	if !errors.Is(unavailableErr, ErrUnavailable) {
 		t.Fatalf("unavailable error = %v, want ErrUnavailable", unavailableErr)
+	}
+}
+
+func TestMongoTimeout(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want time.Duration
+	}{
+		{"5s", 5 * time.Second},
+		{"1500ms", 1500 * time.Millisecond},
+		{"", 5 * time.Second},
+		{"0s", 5 * time.Second},
+		{"-3s", 5 * time.Second},
+		{"nonsense", 5 * time.Second},
+	}
+
+	for _, tc := range cases {
+		if got := mongoTimeout(tc.raw); got != tc.want {
+			t.Errorf("mongoTimeout(%q) = %v, want %v", tc.raw, got, tc.want)
+		}
 	}
 }
 

@@ -153,7 +153,11 @@ func GetMongo(ctx context.Context, queryConfig Config) (map[string]int, error) {
 		V []byte `bson:"v"`
 	}
 
-	err = collection.FindOne(ctx, query).Decode(&foundDoc)
+	// 查询必须带上截止时间，否则慢查询会无限占用连接池，而 HTTP 层不会取消它。
+	queryCtx, cancel := context.WithTimeout(ctx, mongoTimeout(appConfig.Timeout))
+	defer cancel()
+
+	err = collection.FindOne(queryCtx, query).Decode(&foundDoc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, fmt.Errorf("%w: query returned no document", ErrNotFound)
@@ -162,6 +166,14 @@ func GetMongo(ctx context.Context, queryConfig Config) (map[string]int, error) {
 	}
 
 	return decodeUserData(foundDoc.V)
+}
+
+// mongoTimeout 解析 MONGODB_TIMEOUT，缺失或非法时回退到 5s。
+func mongoTimeout(raw string) time.Duration {
+	if duration, err := time.ParseDuration(raw); err == nil && duration > 0 {
+		return duration
+	}
+	return 5 * time.Second
 }
 
 func classifyMongoError(action string, err error) error {
