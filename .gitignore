@@ -83,3 +83,8 @@ __debug_bin
 ######################
 .sass-cache/*
 node_modules/
+
+# 根目录编译产物 #
+######################
+# `go build main.go` 在仓库根目录生成的二进制文件
+/main

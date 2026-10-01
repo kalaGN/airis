@@ -11,7 +11,9 @@
 - 直接依赖包括 Gin 1.11.0、MongoDB Driver 1.17.2、go-redis 9.7.0、Logrus 1.8.1、
   godotenv 1.5.1、gRPC 1.76.0 和 Protobuf 1.36.10。
 - `go.mod`、`go.sum` 是依赖事实来源；没有其他包管理器或锁文件。
-- 未发现项目级 golangci-lint、Makefile、CI、Dockerfile、Kubernetes、Nginx 或数据库迁移工具。
+- CI 为最小 GitHub Actions 门禁：`.github/workflows/ci.yml` 执行 `gofmt` 检查、`go vet ./...`、
+  `go test -race ./...`、`go build ./...`，在 `main`/`dev` 推送和 Pull Request 时触发。
+- 未发现项目级 golangci-lint、Makefile、Dockerfile、Kubernetes、Nginx 或数据库迁移工具。
 - 当前功能边界是健康检查及按请求字段查询 MongoDB、解压并返回六个变量。Redis、gRPC Server、
   Repository 实现、消息队列、GraphQL、定时任务均未确认进入运行链路。
 

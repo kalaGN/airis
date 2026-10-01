@@ -269,8 +269,8 @@ MongoDB 配置同时存在于：
 | 部分整改 | 主调用链统一到 `pkg/config`，但 `pkg/env` 遗留工具仍重复 | 能力误判和维护成本仍存在 | 确认无外部使用后，在独立清理任务中移除 |
 | P2 | Redis、Repository/Model、gRPC 示例和旧 Mongo 连接函数未进入主链路 | 增加维护成本并造成能力误判 | 由负责人确认规划后再保留、隔离或删除 |
 | P2 | `README.md` 的 Go 1.18+、JWT/API Key、Redis、Docker 和限流描述与代码不一致 | 新成员和 AI 使用错误事实 | 单独审查 README；本次只记录，不擅自改产品说明 |
-| P2 | 无 CI、项目级 Lint、漏洞扫描、覆盖率门槛或部署清单 | 质量门禁依赖人工执行 | 待团队确认平台和门槛后通过 Spec 引入 |
-| P2 | 跟踪约 27 MB 的本机 Mach-O `main` 二进制；`.gitignore` 未覆盖根构建产物 | 仓库膨胀、跨平台无效 | 确认发布流程后单独清理历史与忽略规则 |
+| 部分整改 | 已引入最小 CI（`.github/workflows/ci.yml`：gofmt、vet、`test -race`、build），仍无项目级 Lint、漏洞扫描、覆盖率门槛或部署清单 | 格式、编译、竞态与构建回归可自动拦截；更细的质量门禁依赖人工 | 按需通过 Spec 补 golangci-lint、覆盖率门槛与漏洞扫描 |
+| 部分整改 | 约 27 MB 的本机 Mach-O `main` 已移出 Git 跟踪，`.gitignore` 增加 `/main` | 新提交不再累积该二进制；历史中的 blob 仍占据仓库体积 | 如需缩减历史体积，另行评估 history filter 与强推影响 |
 | P2 | `/health` 只返回 `ok`，无 readiness/liveness、Metrics、Tracing 或 Request ID | 依赖故障不可见，排障关联不足 | 先定义运维语义和平台，再补可观测能力 |
 | P2 | 历史 `tests/bench/bench.sh` 请求体只有 phone，与当前 Loan 必填字段不兼容 | 脚本当前不能有效压测成功业务路径 | 在性能 Spec 中修订测试数据生成与安全注入 |
 

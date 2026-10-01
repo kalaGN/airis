@@ -12,7 +12,9 @@ Airis 是一个单仓库、单 Go module 的 Gin HTTP 查询服务。当前真�
 - 应用入口：`main.go`；路由：`routes/api.go`；中间件：`app/middleware/`。
 - 核心处理：`app/Http/controllers/loan/index.go`、`pkg/mongo/mongo.go`。
 - 测试数据 CLI：`cmd/init_mongo.go`。它会删除并重建 16 个集合，未经明确授权不得运行。
-- 依赖锁定：`go.mod`、`go.sum`。仓库未配置 CI、Dockerfile 或项目级 Lint 工具。
+- 依赖锁定：`go.mod`、`go.sum`。CI 为最小 GitHub Actions 门禁
+  （`.github/workflows/ci.yml`：`gofmt`、`go vet`、`go test -race`、`go build`）；
+  仍未配置 Dockerfile、Kubernetes 及项目级 Lint 工具。
 
 ## 常用命令
 
